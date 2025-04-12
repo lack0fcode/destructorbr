@@ -1,9 +1,4 @@
 
-![tw-banner](https://github.com/thirdweb-example/next-starter/assets/57885104/20c8ce3b-4e55-4f10-ae03-2fe4743a5ee8)
-
-# thirdweb-next-starter
-
-Starter template to build an onchain react native app with [thirdweb](https://thirdweb.com/) and [next](https://nextjs.org/).
 
 ## Installation
 
@@ -26,7 +21,7 @@ To learn how to create a client ID, refer to the [client documentation](https://
 Install dependencies
 
 ```bash
-yarn
+yarn install
 ```
 
 Start development server
@@ -35,17 +30,6 @@ Start development server
 yarn dev
 ```
 
-Create a production build
-
-```bash
-yarn build
-```
-
-Preview the production build
-
-```bash
-yarn start
-```
 
 ## Resources
 
