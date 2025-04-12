@@ -32,7 +32,32 @@ function isValidUrl(url?: string): boolean {
   }
 }
 
+// 🧭 Explorers por chainId
+function getExplorerUrl(contractAddress: string, chainId: number | null = 11155111): string {
+  switch (chainId) {
+    case 11155111: // Ethereum Sepolia
+      return `https://sepolia.etherscan.io/address/${contractAddress}`;
+    case 84532: // Base Sepolia
+      return `https://sepolia.basescan.org/address/${contractAddress}`;
+    default:
+      return `https://etherscan.io/address/${contractAddress}`;
+  }
+}
+
+// Função para determinar se o asset é considerado spam
+function isSpam(name: string | undefined): string {
+  if (!name) return "not-spam";  // Default como "NOT SPAM"
+  // Adiciona outras palavras-chave associadas a spam, se necessário
+  const spamKeywords = ["spam", "scam", "fraud", "rugpull"];
+  return spamKeywords.some(keyword => name.toLowerCase().includes(keyword)) ? "spam" : "not-spam";
+}
+
+import { useActiveWalletChain } from "thirdweb/react";
+
 export default function AssetTable({ address, nfts, tokens }: Props) {
+  const chain = useActiveWalletChain();
+  const chainId = chain?.id || 11155111; // fallback para Ethereum Sepolia
+
   return (
     <div className="mt-8">
       <h2 className="text-xl font-bold mb-4">Assets de {address}</h2>
@@ -47,6 +72,7 @@ export default function AssetTable({ address, nfts, tokens }: Props) {
               <th className="px-4 py-2 text-left">Asset</th>
               <th className="px-4 py-2 text-left">Type</th>
               <th className="px-4 py-2 text-left">Balance / Amount</th>
+              <th className="px-4 py-2 text-left">SPAM</th> {/* Coluna SPAM */}
               <th className="px-4 py-2 text-left">Actions</th>
             </tr>
           </thead>
@@ -56,6 +82,7 @@ export default function AssetTable({ address, nfts, tokens }: Props) {
               const imageUrl =
                 nft.media?.[0]?.gateway || nft.metadata?.image || "";
               const contractAddress = nft.contract.address;
+              const spamStatus = isSpam(nft.title || nft.metadata?.name);
 
               return (
                 <tr key={`nft-${index}`}>
@@ -90,14 +117,17 @@ export default function AssetTable({ address, nfts, tokens }: Props) {
                     </span>
                   </td>
                   <td className="px-4 py-2">1</td>
+                  <td className="px-4 py-2 text-xs" style={{ color: spamStatus === "spam" ? "red" : "green" }}>
+                    {spamStatus === "spam" ? "SPAM" : "NOT SPAM"} {/* Exibe SPAM ou NOT SPAM com cores */}
+                  </td>
                   <td className="px-4 py-2 text-sm text-blue-400">
                     <a
-                      href={`https://sepolia.etherscan.io/address/${contractAddress}`}
+                      href={getExplorerUrl(contractAddress, chainId)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="hover:underline"
                     >
-                      Ver no Etherscan
+                      Ver no Explorer
                     </a>
                   </td>
                 </tr>
@@ -111,6 +141,7 @@ export default function AssetTable({ address, nfts, tokens }: Props) {
               const symbol = token.symbol || "???";
               const decimals = token.decimals ?? 18;
               const contractAddress = token.contractAddress;
+              const spamStatus = isSpam(token.name);
 
               let formattedBalance = Number(token.tokenBalance);
               if (!isNaN(formattedBalance)) {
@@ -156,14 +187,17 @@ export default function AssetTable({ address, nfts, tokens }: Props) {
                     })}{" "}
                     {symbol}
                   </td>
+                  <td className="px-4 py-2 text-xs" style={{ color: spamStatus === "spam" ? "red" : "green" }}>
+                    {spamStatus === "spam" ? "SPAM" : "NOT SPAM"} {/* Exibe SPAM ou NOT SPAM com cores */}
+                  </td>
                   <td className="px-4 py-2 text-sm text-blue-400">
                     <a
-                      href={`https://sepolia.etherscan.io/address/${contractAddress}`}
+                      href={getExplorerUrl(contractAddress, chainId)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="hover:underline"
                     >
-                      Ver no Etherscan
+                      Ver no Explorer
                     </a>
                   </td>
                 </tr>
