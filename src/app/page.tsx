@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useActiveAccount, useActiveWallet } from "thirdweb/react";
+import { useActiveAccount, useActiveWalletChain } from "thirdweb/react";
 import { fetchWalletNFTs } from "../lib/fetchWalletNFTs";
 import { fetchWalletTokens } from "../lib/fetchWalletTokens";
 import ConnectWallet from "../components/ConnectWallet";
@@ -11,27 +11,14 @@ import { ALCHEMY_URLS } from "../lib/endpoints";
 
 export default function Home() {
   const account = useActiveAccount();
-  const wallet = useActiveWallet(); // ✅ novo
+  const chain = useActiveWalletChain();
+  const chainId = chain?.id || null;
 
-  const [chainId, setChainId] = useState<number | null>(null); // ✅ novo
   const [inputAddress, setInputAddress] = useState("");
   const [searchAddress, setSearchAddress] = useState<string | null>(null);
   const [nfts, setNfts] = useState<any[]>([]);
   const [tokens, setTokens] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-
-  // ✅ Obter o chainId da carteira conectada
-  useEffect(() => {
-    const fetchChainId = async () => {
-      if (wallet) {
-        const chain = await wallet.getChain();
-        if (chain) {
-          setChainId(chain.id); // ✅ pegar apenas o chainId
-        }
-      }
-    };
-    fetchChainId();
-  }, [wallet]);
 
   useEffect(() => {
     const fetchAssets = async () => {
