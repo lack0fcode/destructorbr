@@ -1,7 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useActiveAccount, useActiveWalletChain } from "thirdweb/react";
+import { useEffect, useState, useRef } from "react";
+import {
+  useActiveAccount,
+  useActiveWalletChain,
+} from "thirdweb/react";
 import { fetchWalletNFTs } from "../lib/fetchWalletNFTs";
 import { fetchWalletTokens } from "../lib/fetchWalletTokens";
 import ConnectWallet from "../components/ConnectWallet";
@@ -19,10 +22,51 @@ export default function Home() {
   const [nfts, setNfts] = useState<any[]>([]);
   const [tokens, setTokens] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [authorized, setAuthorized] = useState(false);
+
+  const lastAccount = useRef<string | null>(null);
+  const lastChainId = useRef<number | null>(null);
 
   useEffect(() => {
+    const requestLoginSignature = async () => {
+      if (account && account.address !== lastAccount.current) {
+        try {
+          const message = `Conectando ao Destructor BR com a carteira ${account.address}`;
+          await account.signMessage({ message });
+          lastAccount.current = account.address;
+          setAuthorized(true);
+        } catch (err) {
+          console.warn("Assinatura de login recusada:", err);
+          setAuthorized(false);
+        }
+      }
+    };
+
+    requestLoginSignature();
+  }, [account]);
+
+  useEffect(() => {
+    const requestNetworkChangeSignature = async () => {
+      if (account && chainId && chainId !== lastChainId.current) {
+        try {
+          const message = `Você está mudando para a rede: ${chain?.name || chainId}`;
+          await account.signMessage({ message });
+          lastChainId.current = chainId;
+          setAuthorized(true);
+        } catch (err) {
+          console.warn("Assinatura de troca de rede recusada:", err);
+          setAuthorized(false);
+        }
+      }
+    };
+
+    requestNetworkChangeSignature();
+  }, [chainId, chain, account]);
+
+  // Busca NFTs e tokens após autorização
+  useEffect(() => {
     const fetchAssets = async () => {
-      if (!searchAddress || !chainId) return;
+      if (!searchAddress || !chainId || !authorized) return;
 
       const chainRpc = ALCHEMY_URLS[chainId];
       if (!chainRpc) {
@@ -46,7 +90,7 @@ export default function Home() {
     };
 
     fetchAssets();
-  }, [searchAddress, chainId]);
+  }, [searchAddress, chainId, authorized]);
 
   const handleSearch = () => {
     if (inputAddress.trim()) {
@@ -85,7 +129,7 @@ export default function Home() {
         </div>
       )}
 
-      {searchAddress && !loading && (
+      {searchAddress && !loading && authorized && (
         <AssetTable address={searchAddress} nfts={nfts} tokens={tokens} />
       )}
     </main>
