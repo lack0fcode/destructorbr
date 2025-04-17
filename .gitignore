@@ -24,6 +24,7 @@ Thumbs.db
 .env.development.local
 .env.test.local
 .env.production.local
+.env.production
 
 # Cache do pacote
 .pnpm/
@@ -39,3 +40,11 @@ coverage/
 
 # Arquivos gerados por dependências (ex: Thirdweb)
 *.tsbuildinfo
+
+# Arquivos de configuração do TypeScript
+
+.dockerignore
+Dockerfile
+docker-compose.yml
+zap-results/
+dc-reports/

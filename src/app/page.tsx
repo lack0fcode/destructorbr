@@ -1,107 +1,75 @@
-"use client";
+'use client';
 
-import { useEffect, useState, useRef } from "react";
-import {
-  useActiveAccount,
-  useActiveWalletChain,
-} from "thirdweb/react";
-import { fetchWalletNFTs } from "../lib/fetchWalletNFTs";
-import { fetchWalletTokens } from "../lib/fetchWalletTokens";
-import ConnectWallet from "../components/ConnectWallet";
-import AssetTable from "../components/AssetTable";
-import SearchBar from "../components/SearchBar";
-import { ALCHEMY_URLS } from "../lib/endpoints";
+import { useState } from 'react';
+import { useActiveAccount, useActiveWalletChain } from 'thirdweb/react';
+import ConnectWallet from '../components/ConnectWallet';
+import SearchBar from '../components/SearchBar';
+import AssetsTable from '../components/AssetsTable';
 
 export default function Home() {
   const account = useActiveAccount();
   const chain = useActiveWalletChain();
-  const chainId = chain?.id || null;
-
-  const [inputAddress, setInputAddress] = useState("");
+  const [inputAddress, setInputAddress] = useState('');
   const [searchAddress, setSearchAddress] = useState<string | null>(null);
   const [nfts, setNfts] = useState<any[]>([]);
   const [tokens, setTokens] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-  const [authorized, setAuthorized] = useState(false);
 
-  const lastAccount = useRef<string | null>(null);
-  const lastChainId = useRef<number | null>(null);
+  const fetchWalletAssets = async (address: string, requiresSignature = false) => {
+    if (!chain?.id) {
+      console.warn("Nenhuma chain conectada.");
+      return;
+    }
 
-  useEffect(() => {
-    const requestLoginSignature = async () => {
-      if (account && account.address !== lastAccount.current) {
-        try {
-          const message = `Conectando ao Destructor BR com a carteira ${account.address}`;
-          await account.signMessage({ message });
-          lastAccount.current = account.address;
-          setAuthorized(true);
-        } catch (err) {
-          console.warn("Assinatura de login recusada:", err);
-          setAuthorized(false);
-        }
-      }
-    };
+    setLoading(true);
 
-    requestLoginSignature();
-  }, [account]);
+    try {
+      let message = '';
+      let signature = '';
 
-  useEffect(() => {
-    const requestNetworkChangeSignature = async () => {
-      if (account && chainId && chainId !== lastChainId.current) {
-        try {
-          const message = `Você está mudando para a rede: ${chain?.name || chainId}`;
-          await account.signMessage({ message });
-          lastChainId.current = chainId;
-          setAuthorized(true);
-        } catch (err) {
-          console.warn("Assinatura de troca de rede recusada:", err);
-          setAuthorized(false);
-        }
-      }
-    };
-
-    requestNetworkChangeSignature();
-  }, [chainId, chain, account]);
-
-  // Busca NFTs e tokens após autorização
-  useEffect(() => {
-    const fetchAssets = async () => {
-      if (!searchAddress || !chainId || !authorized) return;
-
-      const chainRpc = ALCHEMY_URLS[chainId];
-      if (!chainRpc) {
-        console.warn("Rede não suportada:", chainId);
-        return;
+      if (requiresSignature && account?.signMessage) {
+        message = `Requisitando a busca de NFTs e Tokens ${address} para buscar NFTs e tokens.`;
+        signature = await account.signMessage({ message });
       }
 
-      setLoading(true);
-      try {
-        const [nftResult, tokenResult] = await Promise.all([
-          fetchWalletNFTs(searchAddress, chainId),
-          fetchWalletTokens(searchAddress, chainId),
-        ]);
-        setNfts(nftResult);
-        setTokens(tokenResult);
-      } catch (err) {
-        console.error("Erro ao buscar assets:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
+      const queryParams = new URLSearchParams({
+        address,
+        chain: chain.id.toString(), // <- importante!
+        ...(requiresSignature ? { message, signature } : {}),
+      });
 
-    fetchAssets();
-  }, [searchAddress, chainId, authorized]);
+      const [nftsRes, tokensRes] = await Promise.all([
+        fetch(`/api/nfts?${queryParams.toString()}`),
+        fetch(`/api/token-balances?${queryParams.toString()}`),
+      ]);
 
-  const handleSearch = () => {
-    if (inputAddress.trim()) {
-      setSearchAddress(inputAddress.trim());
+      if (!nftsRes.ok) throw new Error(`Erro ao buscar NFTs: ${nftsRes.statusText}`);
+      if (!tokensRes.ok) throw new Error(`Erro ao buscar tokens: ${tokensRes.statusText}`);
+
+      const nftsData = await nftsRes.json();
+      const tokensData = await tokensRes.json();
+
+      setNfts(nftsData.result || []);
+      setTokens(Array.isArray(tokensData) ? tokensData : tokensData.result || []);
+      setSearchAddress(address);
+    } catch (err) {
+      console.error('Erro ao buscar dados da carteira:', err);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleCheckConnected = () => {
+  const handleSearch = async () => {
+    if (!inputAddress) return;
+
+    const isConnectedAddress = account?.address?.toLowerCase() === inputAddress.toLowerCase();
+    await fetchWalletAssets(inputAddress, isConnectedAddress);
+  };
+
+  const handleCheckConnected = async () => {
     if (account?.address) {
       setInputAddress(account.address);
-      setSearchAddress(account.address);
+      await fetchWalletAssets(account.address, true);
     }
   };
 
@@ -129,9 +97,21 @@ export default function Home() {
         </div>
       )}
 
-      {searchAddress && !loading && authorized && (
-        <AssetTable address={searchAddress} nfts={nfts} tokens={tokens} />
-      )}
+  {searchAddress && !loading && (
+    <AssetsTable
+      tokens={tokens}
+      nfts={nfts}
+      onConfirmedChainChange={async () => {
+        if (searchAddress) {
+          setTokens([]);
+          setNfts([]);
+          setLoading(true);
+          await fetchWalletAssets(searchAddress, account?.address === searchAddress);
+          setLoading(false);
+        }
+      }}
+    />
+  )}
     </main>
   );
 }

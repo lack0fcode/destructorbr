@@ -1,7 +1,5 @@
 import "./globals.css";
 import { ThirdwebProvider } from "thirdweb/react";
-import { client } from "../lib/thirdweb";
-import { sepolia } from "thirdweb/chains";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {

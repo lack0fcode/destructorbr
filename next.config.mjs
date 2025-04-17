@@ -1,5 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+output: "standalone",
+
   images: {
     domains: [
       "ipfs.io",
@@ -8,6 +10,7 @@ const nextConfig = {
       "cloudflare-ipfs.com",
       "i.seadn.io",
       "cdn.discordapp.com",
+      "logo.moralis.io",
       "bafybe...", // se quiser adicionar IPFS direto
     ],
   },
