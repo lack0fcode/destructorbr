@@ -1,87 +1,66 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
-import { useActiveAccount, useActiveWallet } from "thirdweb/react";
-import { fetchWalletNFTs } from "../lib/fetchWalletNFTs";
-import { fetchWalletTokens } from "../lib/fetchWalletTokens";
-import ConnectWallet from "../components/ConnectWallet";
-import AssetTable from "../components/AssetTable";
-import SearchBar from "../components/SearchBar";
-import { ALCHEMY_URLS } from "../lib/endpoints";
+import { useState, useEffect } from 'react';
+import { useAccount, useChainId } from 'wagmi';
+import { ConnectButton } from '@rainbow-me/rainbowkit';
+import { fetchWalletTokens } from '@/lib/fetchWalletTokens';
+import SearchBar from '@/components/SearchBar';
+import AssetsTable from '@/components/AssetsTable';
 
-export default function Home() {
-  const account = useActiveAccount();
-  const wallet = useActiveWallet(); // ✅ novo
+export default function HomePage() {
+  const { address, isConnected } = useAccount();
+  const chainId = useChainId();
 
-  const [chainId, setChainId] = useState<number | null>(null); // ✅ novo
-  const [inputAddress, setInputAddress] = useState("");
+  const [inputAddress, setInputAddress] = useState('');
   const [searchAddress, setSearchAddress] = useState<string | null>(null);
-  const [nfts, setNfts] = useState<any[]>([]);
   const [tokens, setTokens] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // ✅ Obter o chainId da carteira conectada
-  useEffect(() => {
-    const fetchChainId = async () => {
-      if (wallet) {
-        const chain = await wallet.getChain();
-        if (chain) {
-          setChainId(chain.id); // ✅ pegar apenas o chainId
-        }
-      }
-    };
-    fetchChainId();
-  }, [wallet]);
-
-  useEffect(() => {
-    const fetchAssets = async () => {
-      if (!searchAddress || !chainId) return;
-
-      const chainRpc = ALCHEMY_URLS[chainId];
-      if (!chainRpc) {
-        console.warn("Rede não suportada:", chainId);
-        return;
-      }
-
-      setLoading(true);
-      try {
-        const [nftResult, tokenResult] = await Promise.all([
-          fetchWalletNFTs(searchAddress, chainId),
-          fetchWalletTokens(searchAddress, chainId),
-        ]);
-        setNfts(nftResult);
-        setTokens(tokenResult);
-      } catch (err) {
-        console.error("Erro ao buscar assets:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchAssets();
-  }, [searchAddress, chainId]);
-
-  const handleSearch = () => {
-    if (inputAddress.trim()) {
-      setSearchAddress(inputAddress.trim());
+  const fetchTokenBalances = async (address: string) => {
+    if (!chainId) {
+      console.warn('Nenhuma chain conectada');
+      return;
+    }
+  
+    setLoading(true);
+    setTokens([]);
+  
+    try {
+      const tokens = await fetchWalletTokens(address, chainId);
+      setTokens(tokens);
+      setSearchAddress(address);
+    } catch (err) {
+      console.error('Erro ao buscar tokens:', err);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleCheckConnected = () => {
-    if (account?.address) {
-      setInputAddress(account.address);
-      setSearchAddress(account.address);
+  const handleSearch = async () => {
+    if (!inputAddress) return;
+    await fetchTokenBalances(inputAddress);
+  };
+
+  const handleCheckConnected = async () => {
+    if (isConnected && address) {
+      setInputAddress(address);
+      await fetchTokenBalances(address);
     }
   };
+
+  useEffect(() => {
+    // Se já conectado e quer exibir saldos ao abrir
+    // handleCheckConnected();
+  }, [address, chainId]);
 
   return (
-    <main className="min-h-screen text-white bg-black px-4 py-6">
-      <header className="flex justify-between items-center mb-10">
-        <h1 className="text-2xl font-bold">Destructor BR</h1>
-        <ConnectWallet />
+    <main className="min-h-screen bg-black text-white px-4 py-6">
+      <header className="flex justify-between items-center mb-10 max-w-5xl mx-auto">
+        <h1 className="text-2xl font-bold">BurnFi</h1>
+        <ConnectButton />
       </header>
 
-      <div className="flex justify-center mb-10">
+      <section className="flex justify-center mb-10">
         <div className="w-full max-w-5xl">
           <SearchBar
             value={inputAddress}
@@ -90,7 +69,7 @@ export default function Home() {
             onCheckConnected={handleCheckConnected}
           />
         </div>
-      </div>
+      </section>
 
       {loading && (
         <div className="flex justify-center items-center mt-10">
@@ -99,7 +78,14 @@ export default function Home() {
       )}
 
       {searchAddress && !loading && (
-        <AssetTable address={searchAddress} nfts={nfts} tokens={tokens} />
+        <AssetsTable
+          tokens={tokens}
+          onConfirmedChainChange={async () => {
+            if (searchAddress) {
+              await fetchTokenBalances(searchAddress);
+            }
+          }}
+        />
       )}
     </main>
   );

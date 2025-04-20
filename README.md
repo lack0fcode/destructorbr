@@ -2,19 +2,16 @@
 
 ## Installation
 
-Install the template using [thirdweb create](https://portal.thirdweb.com/cli/create)
-
-```bash
-  npx thirdweb create app --next
-```
+clone the repository to a folder in you local machine.
 
 ## Environment Variables
 
 To run this project, you will need to add the following environment variables to your .env file:
 
-`CLIENT_ID`
+(...)_MORALIS_API_KEY
+(...)WALLET_CONNECT
+(...)RPC_BASE_SEPOLIA
 
-To learn how to create a client ID, refer to the [client documentation](https://portal.thirdweb.com/typescript/v5/client). 
 
 ## Run locally
 
@@ -29,15 +26,3 @@ Start development server
 ```bash
 yarn dev
 ```
-
-
-## Resources
-
-- [Documentation](https://portal.thirdweb.com/typescript/v5)
-- [Templates](https://thirdweb.com/templates)
-- [YouTube](https://www.youtube.com/c/thirdweb)
-- [Blog](https://blog.thirdweb.com)
-
-## Need help?
-
-For help or feedback, please [visit our support site](https://thirdweb.com/support)

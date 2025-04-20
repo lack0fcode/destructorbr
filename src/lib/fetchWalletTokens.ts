@@ -1,82 +1,30 @@
-import { ALCHEMY_URLS } from "./endpoints";
-
-interface TokenBalanceResponse {
-  contractAddress: string;
-  tokenBalance: string;
-}
-
-interface TokenMetadata {
-  name: string;
-  symbol: string;
-  decimals: number;
-  logo?: string;
-}
-
+// lib/fetchWalletTokens.ts
 export async function fetchWalletTokens(address: string, chainId: number) {
-  const ALCHEMY_URL = ALCHEMY_URLS[chainId];
-
-  if (!ALCHEMY_URL) {
-    console.warn(`ChainId ${chainId} não suportada.`);
-    return [];
+    try {
+      // Converte o chainId para o formato hexadecimal (com prefixo '0x')
+      const chainHex = `0x${chainId.toString(16)}`; // converte chainId para hexadecimal com prefixo '0x'
+  
+      console.log(`Buscando tokens para o endereço: ${address}, chainId (hex): ${chainHex}`);
+  
+      // Monta a URL para a requisição à API que você configurou com Moralis
+      const queryParams = new URLSearchParams({
+        address,
+        chain: chainHex, // Passa o chainId como hexadecimal
+      });
+  
+      console.log(`URL da requisição: /api/token-balances?${queryParams.toString()}`);
+  
+      // Realiza a requisição à API interna
+      const res = await fetch(`/api/token-balances?${queryParams.toString()}`);
+  
+      if (!res.ok) throw new Error(`Erro na requisição: ${res.status}`);
+  
+      const data = await res.json();
+  
+      return data ?? []; // Retorna os dados dos tokens recebidos
+    } catch (error) {
+      console.error("Erro ao buscar tokens:", error);
+      return [];
+    }
   }
-
-  try {
-    const res = await fetch(ALCHEMY_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        jsonrpc: "2.0",
-        id: 1,
-        method: "alchemy_getTokenBalances",
-        params: [address],
-      }),
-    });
-
-    if (!res.ok) throw new Error(`Erro na resposta da API: ${res.status}`);
-
-    const json = await res.json();
-    const tokenBalances: TokenBalanceResponse[] = json.result.tokenBalances ?? [];
-
-    const nonZeroTokens = tokenBalances.filter((t) => {
-      try {
-        return BigInt(t.tokenBalance) > 0n;
-      } catch {
-        return false;
-      }
-    });
-
-    const enrichedTokens = await Promise.all(
-      nonZeroTokens.map(async (token) => {
-        const metadataRes = await fetch(ALCHEMY_URL, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            jsonrpc: "2.0",
-            id: 1,
-            method: "alchemy_getTokenMetadata",
-            params: [token.contractAddress],
-          }),
-        });
-
-        if (!metadataRes.ok) return null;
-
-        const metadataJson = await metadataRes.json();
-        const metadata: TokenMetadata = metadataJson.result;
-
-        return {
-          ...token,
-          ...metadata,
-        };
-      })
-    );
-
-    return enrichedTokens.filter(Boolean);
-  } catch (error) {
-    console.error("Erro ao buscar tokens com Alchemy:", error);
-    return [];
-  }
-}
+  

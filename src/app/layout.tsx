@@ -1,7 +1,7 @@
 import "./globals.css";
-import { ThirdwebProvider } from "thirdweb/react";
-import { client } from "../lib/thirdweb";
-import { sepolia } from "thirdweb/chains";
+import '@rainbow-me/rainbowkit/styles.css';
+import { Providers } from './providers';
+import { ReactNode } from 'react';
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -17,8 +17,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-          <ThirdwebProvider>{children}
-          </ThirdwebProvider>
+      <Providers>{children}</Providers>
       </body>
     </html>
   );
