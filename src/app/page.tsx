@@ -1,59 +1,36 @@
 'use client';
 
-import { useState } from 'react';
-import { useActiveAccount, useActiveWalletChain } from 'thirdweb/react';
-import ConnectWallet from '../components/ConnectWallet';
-import SearchBar from '../components/SearchBar';
-import AssetsTable from '../components/AssetsTable';
+import { useState, useEffect } from 'react';
+import { useAccount, useChainId } from 'wagmi';
+import { ConnectButton } from '@rainbow-me/rainbowkit';
+import { fetchWalletTokens } from '@/lib/fetchWalletTokens';
+import SearchBar from '@/components/SearchBar';
+import AssetsTable from '@/components/AssetsTable';
 
-export default function Home() {
-  const account = useActiveAccount();
-  const chain = useActiveWalletChain();
+export default function HomePage() {
+  const { address, isConnected } = useAccount();
+  const chainId = useChainId();
+
   const [inputAddress, setInputAddress] = useState('');
   const [searchAddress, setSearchAddress] = useState<string | null>(null);
-  const [nfts, setNfts] = useState<any[]>([]);
   const [tokens, setTokens] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const fetchWalletAssets = async (address: string, requiresSignature = false) => {
-    if (!chain?.id) {
-      console.warn("Nenhuma chain conectada.");
+  const fetchTokenBalances = async (address: string) => {
+    if (!chainId) {
+      console.warn('Nenhuma chain conectada');
       return;
     }
-
+  
     setLoading(true);
-
+    setTokens([]);
+  
     try {
-      let message = '';
-      let signature = '';
-
-      if (requiresSignature && account?.signMessage) {
-        message = `Requisitando a busca de NFTs e Tokens ${address} para buscar NFTs e tokens.`;
-        signature = await account.signMessage({ message });
-      }
-
-      const queryParams = new URLSearchParams({
-        address,
-        chain: chain.id.toString(), // <- importante!
-        ...(requiresSignature ? { message, signature } : {}),
-      });
-
-      const [nftsRes, tokensRes] = await Promise.all([
-        fetch(`/api/nfts?${queryParams.toString()}`),
-        fetch(`/api/token-balances?${queryParams.toString()}`),
-      ]);
-
-      if (!nftsRes.ok) throw new Error(`Erro ao buscar NFTs: ${nftsRes.statusText}`);
-      if (!tokensRes.ok) throw new Error(`Erro ao buscar tokens: ${tokensRes.statusText}`);
-
-      const nftsData = await nftsRes.json();
-      const tokensData = await tokensRes.json();
-
-      setNfts(nftsData.result || []);
-      setTokens(Array.isArray(tokensData) ? tokensData : tokensData.result || []);
+      const tokens = await fetchWalletTokens(address, chainId);
+      setTokens(tokens);
       setSearchAddress(address);
     } catch (err) {
-      console.error('Erro ao buscar dados da carteira:', err);
+      console.error('Erro ao buscar tokens:', err);
     } finally {
       setLoading(false);
     }
@@ -61,26 +38,29 @@ export default function Home() {
 
   const handleSearch = async () => {
     if (!inputAddress) return;
-
-    const isConnectedAddress = account?.address?.toLowerCase() === inputAddress.toLowerCase();
-    await fetchWalletAssets(inputAddress, isConnectedAddress);
+    await fetchTokenBalances(inputAddress);
   };
 
   const handleCheckConnected = async () => {
-    if (account?.address) {
-      setInputAddress(account.address);
-      await fetchWalletAssets(account.address, true);
+    if (isConnected && address) {
+      setInputAddress(address);
+      await fetchTokenBalances(address);
     }
   };
 
+  useEffect(() => {
+    // Se já conectado e quer exibir saldos ao abrir
+    // handleCheckConnected();
+  }, [address, chainId]);
+
   return (
-    <main className="min-h-screen text-white bg-black px-4 py-6">
-      <header className="flex justify-between items-center mb-10">
-        <h1 className="text-2xl font-bold">Destructor BR</h1>
-        <ConnectWallet />
+    <main className="min-h-screen bg-black text-white px-4 py-6">
+      <header className="flex justify-between items-center mb-10 max-w-5xl mx-auto">
+        <h1 className="text-2xl font-bold">BurnFi</h1>
+        <ConnectButton />
       </header>
 
-      <div className="flex justify-center mb-10">
+      <section className="flex justify-center mb-10">
         <div className="w-full max-w-5xl">
           <SearchBar
             value={inputAddress}
@@ -89,7 +69,7 @@ export default function Home() {
             onCheckConnected={handleCheckConnected}
           />
         </div>
-      </div>
+      </section>
 
       {loading && (
         <div className="flex justify-center items-center mt-10">
@@ -97,21 +77,16 @@ export default function Home() {
         </div>
       )}
 
-  {searchAddress && !loading && (
-    <AssetsTable
-      tokens={tokens}
-      nfts={nfts}
-      onConfirmedChainChange={async () => {
-        if (searchAddress) {
-          setTokens([]);
-          setNfts([]);
-          setLoading(true);
-          await fetchWalletAssets(searchAddress, account?.address === searchAddress);
-          setLoading(false);
-        }
-      }}
-    />
-  )}
+      {searchAddress && !loading && (
+        <AssetsTable
+          tokens={tokens}
+          onConfirmedChainChange={async () => {
+            if (searchAddress) {
+              await fetchTokenBalances(searchAddress);
+            }
+          }}
+        />
+      )}
     </main>
   );
 }
